@@ -1,8 +1,8 @@
-<polymer-element name="ceci-camera-button" attributes="textcolor buttoncolor buttonactivecolor label value" extends="ceci-element"
-  label="Take Photo" textcolor="#ffffff" buttoncolor="#4DB227" buttonactivecolor="#358915" confirmationmessage="Are you sure?">
+<polymer-element name="ceci-camera-button" attributes="textcolor buttoncolor buttonactivecolor label value imageheight imagewidth" extends="ceci-element"
+  label="Take Photo" textcolor="#ffffff" buttoncolor="#4DB227" buttonactivecolor="#358915" imageheight="160" imagewidth="160">
   <template>
     <link rel="stylesheet" href="component.css"></link>
-      <video id="videoinput"></video>
+      <video class="hidden" id="videoinput"></video>
       <button id="button" on-click="{{click}}"></button>
     <input id="camerainput" type="file" accept="image/*">
     <canvas id="canvasinput"></canvas>
@@ -12,14 +12,14 @@
         "tags": ["button", "click", "tap"],
         "thumbnail": "./thumbnail.png",
         "broadcasts": {
-          "click": {
-            "label": "Click",
-            "description": "Occurs when button is clicked.",
+          "capture": {
+            "label": "Capture",
+            "description": "Occurs when capture is clicked.",
             "default": true
           },
-          "cancelClick": {
-            "label": "Cancel Click",
-            "description": "Occurs when button is clicked and the user denies the confirmation message."
+          "preview": {
+            "label": "Preview",
+            "description": "Occurs preview is clicked."
           }
         },
         "listeners": {
@@ -41,6 +41,16 @@
             "editable": "text",
             "listener": true,
             "defaultListener": true
+          },
+          "imageheight": {
+            "label": "Image Height",
+            "description": "Height of the captured image.",
+            "editable": "number"
+          },
+          "imagewidth": {
+            "label": "Image Width",
+            "description": "Width of the captured image.",
+            "editable": "number"
           },
           "textcolor": {
             "label": "Text Color",
@@ -92,8 +102,9 @@
             var streaming = false;
             var video = this.$.videoinput;
             var canvas = this.$.canvasinput;
-            var height = 160;
-            var width = 160;
+            var height = this.imageheight;
+            var width = this.imagewidth;
+            var that = this;
             navigator.getMedia(
                   {
                       video: true,
@@ -125,21 +136,32 @@
             }, false);
         }
       },
+      showingPreview: false,
       click: function () {
 
-      if (navigator.getMedia) {
+      if (navigator.getMedia && (this.showingPreview === false)) {
+          this.broadcast("preview", 0);
+          this.$.videoinput.classList.remove("hidden");
+          this.showingPreview = true;
+          return;
+      }
+
+      if (navigator.getMedia && (this.showingPreview === true)) {
             var canvas = this.$.canvasinput;
             var video = this.$.videoinput;
-            var width = 160;
-            var height = 160;
+            var width = this.imagewidth;
+            var height = this.imageheight;
             var that = this;
+            this.showingPreview = false;
             function takepicture() {
                 canvas.width = width;
                 canvas.height = height;
                 canvas.getContext('2d').drawImage(video, 0, 0, width, height);
                 var data = canvas.toDataURL('image/png');
                 console.log("webrtc", data);
-                that.broadcast('click', data);
+                that.broadcast("preview", this.imageheight);
+                video.classList.add("hidden");
+                that.broadcast('capture', data);
 
             }
 
@@ -163,7 +185,7 @@
             activity.onsuccess = function() {
               var data =  window.URL.createObjectURL(this.result.blob);
               console.log("A picture has been retrieved");
-              that.broadcast("click", data);
+              that.broadcast("capture", data);
             };
 
             activity.onerror = function() {
@@ -181,7 +203,7 @@
 
                 reader.onloadend = function() {
                     console.log("File", reader.result);
-                    that.broadcast("click", reader.result);
+                    that.broadcast("capure", reader.result);
                 };
 
                 if (file) {

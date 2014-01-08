@@ -36,8 +36,12 @@
     display: none;
 }
 
-:host #videoinput {
+:host #hidden {
     display: none;
+}
+
+:host #videoinput {
+    width: 100%;
 }
 
 :host #canvasinput {
