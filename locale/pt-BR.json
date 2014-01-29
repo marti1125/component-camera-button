@@ -1,5 +1,6 @@
 {
-    "ceci-camera-button": "Botão de câmera",
+    "ceci-camera-button": "Botão da câmera",
+    "ceci-camera-button/description": "Tira uma foto com sua câmera.",
     "ceci-camera-button/attributes/label": "Tirar photo",
     "ceci-camera-button/attributes/label/label": "Rótulo",
     "ceci-camera-button/attributes/label/description": "Texto exibido no botão.",
