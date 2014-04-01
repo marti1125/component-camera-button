@@ -1,12 +1,13 @@
 <polymer-element name="ceci-camera-button" attributes="textcolor buttoncolor buttonactivecolor label value imageheight imagewidth" extends="ceci-element"
-  label="Take Photo" textcolor="#ffffff" buttoncolor="#4DB227" buttonactivecolor="#358915" imageheight="160" imagewidth="160">
+  label="ENABLE CAMERA" textcolor="#ffffff" buttoncolor="#4DB227" buttonactivecolor="#358915" imageheight="160" imagewidth="160">
   <template>
     <link rel="stylesheet" href="component.css"></link>
-      <video class="hidden" id="videoinput"></video>
-      <button id="button" on-click="{{click}}"></button>
-    <input id="camerainput" type="file" accept="image/*">
     <canvas id="canvasinput"></canvas>
+    <video class="hidden" id="videoinput"></video>
+    <button id="button" on-click="{{click}}"></button>
+    <input id="camerainput" type="file" accept="image/*">
     <shadow></shadow>
+
     <script type="text/json" id="ceci-definition">
       {
         "tags": ["button", "click", "tap"],
@@ -82,6 +83,8 @@
         this.super();
 
         var that = this;
+
+        // this should not be this-component-specific
         this.$.button.addEventListener('mousedown', function (e) {
           var valueBefore = that.buttoncolor;
           if (that.buttonactivecolor) {
@@ -92,132 +95,140 @@
           }
         }, false);
 
+        // do we have getMedia available?
         navigator.getMedia = (navigator.getUserMedia ||
           navigator.webkitGetUserMedia ||
           navigator.mozGetUserMedia ||
           navigator.msGetUserMedia);
-
-        // WebRTC support
+      },
+      enableCamera: function() {
         if (navigator.getMedia) {
-            // WebRTC supported.
-            var that = this;
-            var streaming = false;
-            var video = this.$.videoinput;
-            var canvas = this.$.canvasinput;
-            var height = this.imageheight;
-            var width = this.imagewidth;
-            var that = this;
-            navigator.getMedia(
-                  {
-                      video: true,
-                      audio: false
-                  },
-                  function(stream) {
-                      if (navigator.mozGetUserMedia) {
-                          video.mozSrcObject = stream;
-                      } else {
-                          var vendorURL = window.URL || window.webkitURL;
-                          video.src = vendorURL.createObjectURL(stream);
-                      }
-                      video.play();
-                  },
-                  function(err) {
-                      console.log("An error occured! " + err);
-                  }
-            );
+          this.streaming = false;
+          var that = this;
 
-            video.addEventListener('canplay', function(ev){
-              if (!streaming) {
-                  height = video.videoHeight / (video.videoWidth/width);
-                  video.setAttribute('width', width);
-                  video.setAttribute('height', height);
-                  canvas.setAttribute('width', width);
-                  canvas.setAttribute('height', height);
-                  streaming = true;
-              }
-            }, false);
+          var video = this.video = this.$.videoinput;
+          var canvas = this.$.canvasinput;
+          var height = this.imageheight;
+          var width = this.imagewidth;
+
+          var cameraPurpose = {
+            video: true,
+            audio: false
+          };
+
+          var streamHandler = function(stream) {
+            that.videoStream = stream;
+            if (navigator.mozGetUserMedia) {
+              video.mozSrcObject = stream;
+            } else {
+              var vendorURL = window.URL || window.webkitURL;
+              video.src = vendorURL.createObjectURL(stream);
+            }
+            video.play();
+          };
+
+          var errorHandler = function(err) {
+            console.log("An error occured! " + err);
+          };
+
+          navigator.getMedia(cameraPurpose, streamHandler, errorHandler);
+
+          video.addEventListener('canplay', function(ev) {
+            if (!that.streaming) {
+              // get aspect-corrected height
+              height = video.videoHeight / (video.videoWidth/width);
+              video.setAttribute('width', width);
+              video.setAttribute('height', height);
+              canvas.setAttribute('width', width);
+              canvas.setAttribute('height', height);
+              that.streaming = true;
+            }
+          }, false);
         }
+        // end of ready() code
       },
       showingPreview: false,
       click: function () {
-
-      if (navigator.getMedia && (this.showingPreview === false)) {
-          this.broadcast("preview", 0);
-          this.$.videoinput.classList.remove("hidden");
-          this.showingPreview = true;
-          return;
-      }
-
-      if (navigator.getMedia && (this.showingPreview === true)) {
-            var canvas = this.$.canvasinput;
-            var video = this.$.videoinput;
-            var width = this.imagewidth;
-            var height = this.imageheight;
-            var that = this;
-            this.showingPreview = false;
-            function takepicture() {
-                canvas.width = width;
-                canvas.height = height;
-                canvas.getContext('2d').drawImage(video, 0, 0, width, height);
-                var data = canvas.toDataURL('image/png');
-                console.log("webrtc", data);
-                that.broadcast("preview", this.imageheight);
-                video.classList.add("hidden");
-                that.broadcast('capture', data);
-
-            }
-
-            takepicture();
-        }
-
-        // Firefox OS
         if ("mozActivity" in navigator) {
-            var activity = new MozActivity({
-              // Ask for the "pick" activity
-              name: "pick",
-
-              // Provide the data required by the filters of the activity
-              data: {
-                  type: ["image/jpeg", "image/png"]
-              }
-            });
-
-            var that = this;
-
-            activity.onsuccess = function() {
-              var data =  window.URL.createObjectURL(this.result.blob);
-              console.log("A picture has been retrieved");
-              that.broadcast("capture", data);
-            };
-
-            activity.onerror = function() {
-              console.log(this.error);
-            };
+          return this.ffosClick();
         }
 
-        // No WebRTC and no WebActivity
-        if (!navigator.getMedia) {
-            // rest of the world
-            var that = this;
-            function selectedPic() {
-                var reader = new FileReader();
-                var file = that.$.camerainput.files[0];
+        if (navigator.getMedia) {
 
-                reader.onloadend = function() {
-                    console.log("File", reader.result);
-                    that.broadcast("capure", reader.result);
-                };
+          // start previewing if we're not previewing yet
+          if (this.showingPreview === false) {
+            this.enableCamera();
+            this.broadcast("preview", 0);
+            this.$.videoinput.classList.remove("hidden");
+            this.$.button.innerHTML = "TAKE PICTURE"
+            this.showingPreview = true;
+            return;
+          }
 
-                if (file) {
-                    reader.readAsDataURL(file);
-                }
+          var canvas = this.$.canvasinput;
+          var video = this.$.videoinput;
+          var width = this.imagewidth;
+          var height = this.imageheight;
+          var that = this;
 
+          canvas.width = width;
+          canvas.height = height;
+          canvas.getContext('2d').drawImage(video, 0, 0, width, height);
+          var data = canvas.toDataURL('image/png');
+          console.log("webrtc", data);
+          this.broadcast("preview", this.imageheight);
+          this.broadcast('capture', data);
 
-            }
-            this.$.camerainput.addEventListener("change", selectedPic, false);
-            this.$.camerainput.click();
-
+          video.src = "";
+          video.classList.add("hidden");
+          this.videoStream.stop();
+          this.showingPreview = false;
+          this.$.button.innerHTML = "ENABLE CAMERA";
         }
+
+        // fall back to from-file if nothing else is available
+        else { this.fromFile(); }
+      },
+      ffosClick: function() {
+        var activity = new MozActivity({
+          // Ask for the "pick" activity
+          name: "pick",
+
+          // Provide the data required by the filters of the activity
+          data: {
+            type: ["image/jpeg", "image/png"]
+          }
+        });
+
+        var that = this;
+
+        activity.onsuccess = function() {
+          var data =  window.URL.createObjectURL(this.result.blob);
+          console.log("A picture has been retrieved");
+          that.broadcast("capture", data);
+        };
+
+        activity.onerror = function() {
+          console.log(this.error);
+        };
+      },
+      fromFile: function() {
+        var that = this;
+        function selectImageFile() {
+          var reader = new FileReader();
+          var file = that.$.camerainput.files[0];
+
+          reader.onloadend = function() {
+            console.log("File", reader.result);
+            that.broadcast("capure", reader.result);
+          };
+
+          if (file) {
+            reader.readAsDataURL(file);
+          }
+        }
+        this.$.camerainput.addEventListener("change", selectImageFile, false);
+        this.$.camerainput.click();
       },
       labelChanged: function (oldValue, newValue) {
         this.$.button.innerHTML = newValue;
