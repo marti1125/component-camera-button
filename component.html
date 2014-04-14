@@ -1,79 +1,65 @@
 <polymer-element name="ceci-camera-button" attributes="textcolor buttoncolor buttonactivecolor label value imageheight imagewidth" extends="ceci-element"
-  label="ENABLE CAMERA" textcolor="#ffffff" buttoncolor="#4DB227" buttonactivecolor="#358915" imageheight="160" imagewidth="160">
+  label="Enable Camera" textcolor="#ffffff" buttoncolor="#4DB227" buttonactivecolor="#358915" imageheight="160" imagewidth="160">
   <template>
+
+    <div class="mode mode-disabled">
+      <div class="mode-content">
+        <img src="images/camera-asleep.png" />
+        <button id="enable-camera" on-click="{{enableCamera}}">Enable Camera</button>
+      </div>
+      <div class="shutter-bar">
+        <div class="shutter-button"></div>
+      </div>
+    </div>
+
+    <div class="mode mode-pending">
+      <div class="mode-content">
+        <img src="images/arrow-up.png" />
+        <p>Please allow your device to use your camera.</p>
+      </div>
+      <div class="shutter-bar">
+        <div class="shutter-button"></div>
+      </div>
+    </div>
+
+    <div class="mode mode-file">
+      <div class="mode-content">
+        <img src="images/folder-photo.png" />
+        <h2>Oops!</h2>
+        <p>This device doesn't have a camera but you can...</p>
+        <button on-click="{{pickFile}}">Choose an Image File</button>
+      </div>
+    </div>
+
+    <div class="mode mode-enabled">
+      <div class="mode-content">
+        <video id="videoinput"></video>
+      </div>
+      <div class="shutter-bar">
+        <div class="shutter-button" on-click="{{takePhoto}}"></div>
+      </div>
+    </div>
+
     <link rel="stylesheet" href="component.css"></link>
     <canvas id="canvasinput"></canvas>
-    <video class="hidden" id="videoinput"></video>
-    <button id="button" on-click="{{click}}"></button>
+
     <input id="camerainput" type="file" accept="image/*">
     <shadow></shadow>
 
     <script type="text/json" id="ceci-definition">
       {
-        "tags": ["button", "click", "tap"],
+        "tags": ["tap","camera","photo"],
         "thumbnail": "./thumbnail.png",
-        "name": "Camera Button",
-        "description": "Takes a picture with your camera.",
+        "name": "Camera",
+        "description": "Takes a picture with your device camera, or uses an image file camera is not available.",
         "broadcasts": {
-          "capture": {
-            "label": "Capture",
-            "description": "Occurs when capture is clicked.",
+          "photo": {
+            "label": "Photo",
+            "description": "Broadcasts the photo image data.",
             "default": true
-          },
-          "preview": {
-            "label": "Preview",
-            "description": "Occurs preview is clicked."
           }
         },
-        "listeners": {
-          "click": {
-            "description": "Causes a fake click event to occur.",
-            "label": "Click"
-          }
-        },
-        "attributes": {
-          "label": {
-            "label": "Label",
-            "description": "Text shown on the button.",
-            "editable": "text",
-            "listener": true
-          },
-          "value": {
-            "label": "Value",
-            "description": "Value sent by the button.",
-            "editable": "text",
-            "listener": true,
-            "defaultListener": true
-          },
-          "imageheight": {
-            "label": "Image Height",
-            "description": "Height of the captured image.",
-            "editable": "number"
-          },
-          "imagewidth": {
-            "label": "Image Width",
-            "description": "Width of the captured image.",
-            "editable": "number"
-          },
-          "textcolor": {
-            "label": "Text Color",
-            "description": "Color of the text on the button's label.",
-            "editable": "color",
-            "listener": true
-          },
-          "buttoncolor": {
-            "label": "Button Color",
-            "description": "Background color of the button.",
-            "editable": "color",
-            "listener": true
-          },
-          "buttonactivecolor": {
-            "label": "Button Active Color",
-            "description": "Background color of the button while it is being clicked or tapped.",
-            "editable": "color",
-            "listener": true
-          }
-        }
+        "listeners": {}
       }
     </script>
   </template>
@@ -82,27 +68,34 @@
       ready: function () {
         this.super();
 
-        var that = this;
-
-        // this should not be this-component-specific
-        this.$.button.addEventListener('mousedown', function (e) {
-          var valueBefore = that.buttoncolor;
-          if (that.buttonactivecolor) {
-            that.$.button.style.backgroundColor = that.buttonactivecolor;
-            window.addEventListener('mouseup', function (e) {
-              that.$.button.style.backgroundColor = valueBefore;
-            }, false);
-          }
-        }, false);
-
         // do we have getMedia available?
         navigator.getMedia = (navigator.getUserMedia ||
           navigator.webkitGetUserMedia ||
           navigator.mozGetUserMedia ||
           navigator.msGetUserMedia);
+
+      },
+      attached : function(){
+        if (!navigator.getMedia) {
+          this.cameraMode("file");
+        } else {
+          this.cameraMode("disabled");
+        }
+      },
+      cameraMode : function(mode) {
+        var modes = this.shadowRoot.querySelectorAll(".mode");
+        for(var m in modes){
+          if(modes.hasOwnProperty(m)){
+            modes[m].style.display = "none";
+          }
+        }
+        this.shadowRoot.querySelector(".mode-" + mode).style.display = "block";
       },
       enableCamera: function() {
         if (navigator.getMedia) {
+
+          this.cameraMode("pending");
+
           this.streaming = false;
           var that = this;
 
@@ -129,42 +122,34 @@
 
           var errorHandler = function(err) {
             console.log("An error occured! " + err);
+            that.cameraMode("disabled");
           };
 
           navigator.getMedia(cameraPurpose, streamHandler, errorHandler);
 
           video.addEventListener('canplay', function(ev) {
+
             if (!that.streaming) {
+              that.cameraMode("enabled");
               // get aspect-corrected height
               height = video.videoHeight / (video.videoWidth/width);
-              video.setAttribute('width', width);
-              video.setAttribute('height', height);
               canvas.setAttribute('width', width);
               canvas.setAttribute('height', height);
+              that.imagewidth = width;
+              that.imageheight = height;
               that.streaming = true;
             }
           }, false);
         }
         // end of ready() code
       },
-      showingPreview: false,
-      click: function () {
+
+      takePhoto : function(){
         if ("mozActivity" in navigator) {
           return this.ffosClick();
         }
 
         if (navigator.getMedia) {
-
-          // start previewing if we're not previewing yet
-          if (this.showingPreview === false) {
-            this.enableCamera();
-            this.broadcast("preview", 0);
-            this.$.videoinput.classList.remove("hidden");
-            this.$.button.innerHTML = "TAKE PICTURE"
-            this.showingPreview = true;
-            return;
-          }
-
           var canvas = this.$.canvasinput;
           var video = this.$.videoinput;
           var width = this.imagewidth;
@@ -175,19 +160,14 @@
           canvas.height = height;
           canvas.getContext('2d').drawImage(video, 0, 0, width, height);
           var data = canvas.toDataURL('image/png');
-          console.log("webrtc", data);
-          this.broadcast("preview", this.imageheight);
-          this.broadcast('capture', data);
+          console.log("broadcasting");
+          this.broadcast('photo', data);
 
+          // Stops the video stream and resets camera
           video.src = "";
-          video.classList.add("hidden");
           this.videoStream.stop();
-          this.showingPreview = false;
-          this.$.button.innerHTML = "ENABLE CAMERA";
+          this.cameraMode("disabled");
         }
-
-        // fall back to from-file if nothing else is available
-        else { this.fromFile(); }
       },
       ffosClick: function() {
         var activity = new MozActivity({
@@ -205,14 +185,14 @@
         activity.onsuccess = function() {
           var data =  window.URL.createObjectURL(this.result.blob);
           console.log("A picture has been retrieved");
-          that.broadcast("capture", data);
+          that.broadcast("photo", data);
         };
 
         activity.onerror = function() {
           console.log(this.error);
         };
       },
-      fromFile: function() {
+      pickFile : function(){
         var that = this;
         function selectImageFile() {
           var reader = new FileReader();
@@ -220,24 +200,16 @@
 
           reader.onloadend = function() {
             console.log("File", reader.result);
-            that.broadcast("capure", reader.result);
+            that.broadcast("photo", reader.result);
           };
 
           if (file) {
             reader.readAsDataURL(file);
           }
         }
+
         this.$.camerainput.addEventListener("change", selectImageFile, false);
         this.$.camerainput.click();
-      },
-      labelChanged: function (oldValue, newValue) {
-        this.$.button.innerHTML = newValue;
-      },
-      textcolorChanged: function (oldValue, newValue) {
-          this.$.button.style.color = newValue;
-      },
-      buttoncolorChanged: function (oldValue, newValue) {
-        this.$.button.style.backgroundColor = newValue;
       }
     });
   </script>
