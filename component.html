@@ -45,24 +45,23 @@
 
     <input id="camerainput" type="file" accept="image/*">
     <shadow></shadow>
-
-    <script type="text/json" id="ceci-definition">
-      {
-        "tags": ["tap","camera","photo"],
-        "thumbnail": "./thumbnail.png",
-        "name": "Camera",
-        "description": "Takes a picture with your device camera, or uses an image file camera is not available.",
-        "broadcasts": {
-          "photo": {
-            "label": "Photo",
-            "description": "Broadcasts the photo image data.",
-            "default": true
-          }
-        },
-        "listeners": {}
-      }
-    </script>
   </template>
+  <ceci-definition>
+    {
+      "tags": ["tap","camera","photo"],
+      "thumbnail": "./thumbnail.png",
+      "name": "Camera",
+      "description": "Takes a picture with your device camera, or uses an image file camera is not available.",
+      "broadcasts": {
+        "photo": {
+          "label": "Photo",
+          "description": "Broadcasts the photo image data.",
+          "default": true
+        }
+      },
+      "listeners": {}
+    }
+  </ceci-definition>
   <script>
     Polymer('ceci-camera-button', {
       ready: function () {
